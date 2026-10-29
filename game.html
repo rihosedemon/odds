@@ -73,7 +73,8 @@ async function load() {
     try { const r = await fetch(RAW, {cache:"no-store"}); if (r.ok) d = await r.json(); } catch (e) {}
   }
   if (!d) {
-    if (!D) document.getElementById("app").innerHTML = `<div class="msg">no page for game ${esc(GID)} yet</div>`;
+    if (!D) document.getElementById("app").innerHTML = `<div class="msg">no page for game ${esc(GID)} yet - retrying</div>`;
+    clearTimeout(timer); timer = setTimeout(load, D ? REFRESH : 30000);  // a network blip must not stop the refresh
     return;
   }
   D = d;
@@ -83,7 +84,7 @@ async function load() {
   }
   render();
   clearTimeout(timer);
-  if (D.state !== "final") timer = setTimeout(load, REFRESH);
+  if (D.state !== "final" || D.alerts.some(a => a.res === "" && !a.cancel)) timer = setTimeout(load, REFRESH);
 }
 
 function result(a) {
@@ -95,7 +96,7 @@ function result(a) {
 
 function render() {
   const d = D, live = d.state === "live", fin = d.final;
-  const score = fin ? `${fin[0]} : ${fin[1]}` : d.score ? d.score.replace(":", " : ") : "– : –";
+  const score = fin ? `${fin[0]} : ${fin[1]}` : d.score ? esc(d.score).replace(":", " : ") : "– : –";
   const state = fin || d.state === "final" ? "Final" : live ? `<span class="live">LIVE</span> ${esc(d.clock)}`
               : `Tip-off ${day(d.tip)} ${hm(d.tip)}`;
   document.title = `${d.home} – ${d.away}`;
@@ -127,7 +128,7 @@ function table(m, d) {
   const goneRow = d.pulled ? `<tr class="gone"><td colspan="6">🚫 PULLED here: last price at ${esc(d.pulled.clock)} · ${esc(d.pulled.score)}</td></tr>` : "";
   for (const {x, i} of rows) {
     for (const a of bells) if (!a._done && x.t >= a.t) { a._done = 1;
-      out.push(`<tr class="bell"><td colspan="${main ? 6 : 4}">🔔 ${esc(a.kind)} here · bet365 ${esc(a.line_left)} ➜ ${esc(a.signal)}
+      out.push(`<tr class="bell"><td colspan="${main ? 6 : 3}">🔔 ${esc(a.kind)} here · bet365 ${esc(a.line_left)} ➜ ${esc(a.signal)}
         · BET ${esc(a.bet)}</td></tr>`); }
     const ad = Math.abs(+x.gd);
     const cls = main && x.gd !== undefined ? (ad >= 9 ? "red3" : ad >= 7 ? "red2" : ad >= 6 ? "red1" : "") : "";
