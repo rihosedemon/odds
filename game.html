@@ -131,7 +131,7 @@ function table(m, d) {
       out.push(`<tr class="bell"><td colspan="${main ? 6 : 3}">🔔 ${esc(a.kind)} here · bet365 ${esc(a.line_left)} ➜ ${esc(a.signal)}
         · BET ${esc(a.bet)}</td></tr>`); }
     const ad = Math.abs(+x.gd);
-    const cls = main && x.gd !== undefined ? (ad >= 9 ? "red3" : ad >= 7 ? "red2" : ad >= 6 ? "red1" : ad >= 5 ? "bot" : "")  // orange = our BOT alert level 5 (user 10-29: no red on Piratas, its alert was 5.2) : "";
+    const cls = main && x.gd !== undefined ? (ad >= 9 ? "red3" : ad >= 7 ? "red2" : ad >= 6 ? "red1" : ad >= 5 ? "bot" : "") : "";  // orange = our BOT alert level 5 (user 10-29: no red on Piratas, its alert was 5.2)
     const mv = x.mv > 0 ? '<span class="up">▲</span>' : x.mv < 0 ? '<span class="dn">▼</span>' : "";
     const off = !x.o1 || x.o1 === "-";  // bet365 sent the line without a price: not bettable
     const odds = off ? "no price" : `${esc(x.o1)} / ${esc(x.o2)}`;
