@@ -12,6 +12,7 @@
 :root { --top:#feba07; --badge:#FFFACE; --live:#F9CBCC; --head:#f3f3f3; --txt:#666; --red1:#fee; --red2:#e99; --red3:#a00; }
 * { box-sizing:border-box; }
 body { margin:0; background:#fff; color:#333; font:14px Roboto, Arial, sans-serif; }
+#app { max-width:820px; margin:0 auto; }
 .top { background:var(--top); padding:12px 16px 14px; }
 .lg { font:600 13px "Fira Sans Extra Condensed", sans-serif; text-transform:uppercase; letter-spacing:.3px; }
 .teams { display:flex; align-items:center; justify-content:space-between; gap:8px; margin-top:8px;
@@ -122,6 +123,8 @@ function table(m, d) {
   const bells = d.alerts.filter(a => MK[a.mk] === m.key);
   let rows = m.rows.map((x, i) => ({x, i}));
   const out = [];
+  let gone = 0;
+  const goneRow = d.pulled ? `<tr class="gone"><td colspan="6">🚫 PULLED here: last price at ${esc(d.pulled.clock)} · ${esc(d.pulled.score)}</td></tr>` : "";
   for (const {x, i} of rows) {
     for (const a of bells) if (!a._done && x.t >= a.t) { a._done = 1;
       out.push(`<tr class="bell"><td colspan="${main ? 6 : 4}">🔔 ${esc(a.kind)} here · bet365 ${esc(a.line_left)} ➜ ${esc(a.signal)}
@@ -129,13 +132,16 @@ function table(m, d) {
     const ad = Math.abs(+x.gd);
     const cls = main && x.gd !== undefined ? (ad >= 9 ? "red3" : ad >= 7 ? "red2" : ad >= 6 ? "red1" : "") : "";
     const mv = x.mv > 0 ? '<span class="up">▲</span>' : x.mv < 0 ? '<span class="dn">▼</span>' : "";
-    const line = ml ? `${esc(x.o1)} / ${esc(x.o2)}` : `${esc(x.l)} ${mv}<small>${esc(x.o1)} / ${esc(x.o2)}</small>`;
+    const off = !x.o1 || x.o1 === "-";  // bet365 sent the line without a price: not bettable
+    const odds = off ? "no price" : `${esc(x.o1)} / ${esc(x.o2)}`;
+    const line = ml ? odds : `${esc(x.l)} ${mv}<small>${odds}</small>`;
+    if (d.pulled && main && !gone && x.t > d.pulled.t) { gone = 1; out.push(goneRow); }
     out.push(`<tr class="${i === 0 ? "open" : ""}"><td>${hm(x.t, true)}</td>
       <td>${x.c ? esc(x.sc) + "<small>" + esc((x.q ? "Q" + x.q + " " : "") + x.c) + "</small>" : "<small>pre-game</small>"}</td>
       <td class="${cls}">${line}</td>${main ? `<td>${esc(x.g ?? "")}</td><td>${esc(x.gd ?? "")}</td><td>${esc(x.go ?? "")}</td>` : ""}</tr>`);
   }
   bells.forEach(a => delete a._done);
-  if (d.pulled && main) out.push(`<tr class="gone"><td colspan="6">🚫 PULLED after this row · ${esc(d.pulled.clock)} · ${esc(d.pulled.score)}</td></tr>`);
+  if (d.pulled && main && !gone) out.push(goneRow);
   if (d.state === "live") out.reverse();  // newest on top while it plays
   return sum + `<div class="wrap"><table><thead><tr><th>Time</th><th>Score</th><th>${ml ? "Odds" : esc(m.name)}</th>
     ${main ? "<th>Bot line</th><th>DIFF</th><th>Overload</th>" : ""}</tr></thead><tbody>${out.join("")}</tbody></table></div>`;
