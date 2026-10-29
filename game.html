@@ -9,7 +9,7 @@
 <style>
 /* the look of dropping-odds' event page (measured 10-29 on its saved pages): yellow top block, cream score badge, pink
    live badge, 13px #666 cells, 10px uppercase headers on #f3f3f3, red cells by |DIFF| 6 / 7 / 9 */
-:root { --top:#feba07; --badge:#FFFACE; --live:#F9CBCC; --head:#f3f3f3; --txt:#666; --red1:#fee; --red2:#e99; --red3:#a00; }
+:root { --top:#feba07; --badge:#FFFACE; --live:#F9CBCC; --head:#f3f3f3; --txt:#666; --red1:#fee; --red2:#e99; --red3:#a00; --bot:#ffe0b2; }
 * { box-sizing:border-box; }
 body { margin:0; background:#fff; color:#333; font:14px Roboto, Arial, sans-serif; }
 #app { max-width:820px; margin:0 auto; }
@@ -38,7 +38,7 @@ th { background:var(--head); font:500 10px Roboto, sans-serif; text-transform:up
 td { font-size:13px; color:var(--txt); padding:5px 4px; border-bottom:1px solid #eee; text-align:center; }
 td small { display:block; font-size:10px; color:#999; }
 tr:hover td { background:var(--badge); }
-td.red1 { background:var(--red1); } td.red2 { background:var(--red2); color:#333; } td.red3 { background:var(--red3); color:#fff; }
+td.bot { background:var(--bot); color:#333; } td.red1 { background:var(--red1); } td.red2 { background:var(--red2); color:#333; } td.red3 { background:var(--red3); color:#fff; }
 td.red3 small { color:#fdd; }
 .up { color:#0a7d2c; } .dn { color:var(--red3); }
 tr.bell td { background:#fff8e1; color:#333; text-align:left; font-size:12px; }
@@ -112,7 +112,7 @@ function render() {
   const m = d.markets.find(m => m.key === tab);
   if (m) h += table(m, d);
   h += `<div class="foot">Bot line = bet365's pre-game close × share of regulation left + the score (the game's own
-    ${d.plen}-min quarters). DIFF = bot − line; red from |DIFF| 6, overload from 7. Times in your clock.</div>`;
+    ${d.plen}-min quarters). DIFF = bot − line; orange from |DIFF| 5 (our bot alerts), red from 6 (as dropping-odds), overload from 7. Times in your clock.</div>`;
   const app = document.getElementById("app");
   app.innerHTML = h;
   app.querySelectorAll(".tabs button").forEach(b => b.onclick = () => { tab = b.dataset.k; render(); });
@@ -131,7 +131,7 @@ function table(m, d) {
       out.push(`<tr class="bell"><td colspan="${main ? 6 : 3}">🔔 ${esc(a.kind)} here · bet365 ${esc(a.line_left)} ➜ ${esc(a.signal)}
         · BET ${esc(a.bet)}</td></tr>`); }
     const ad = Math.abs(+x.gd);
-    const cls = main && x.gd !== undefined ? (ad >= 9 ? "red3" : ad >= 7 ? "red2" : ad >= 6 ? "red1" : "") : "";
+    const cls = main && x.gd !== undefined ? (ad >= 9 ? "red3" : ad >= 7 ? "red2" : ad >= 6 ? "red1" : ad >= 5 ? "bot" : "")  // orange = our BOT alert level 5 (user 10-29: no red on Piratas, its alert was 5.2) : "";
     const mv = x.mv > 0 ? '<span class="up">▲</span>' : x.mv < 0 ? '<span class="dn">▼</span>' : "";
     const off = !x.o1 || x.o1 === "-";  // bet365 sent the line without a price: not bettable
     const odds = off ? "no price" : `${esc(x.o1)} / ${esc(x.o2)}`;
