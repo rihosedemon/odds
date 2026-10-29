@@ -1,0 +1,147 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Game</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Fira+Sans+Extra+Condensed:wght@400;600;700&family=Roboto:wght@400;500&display=swap" rel="stylesheet">
+<style>
+/* the look of dropping-odds' event page (measured 10-29 on its saved pages): yellow top block, cream score badge, pink
+   live badge, 13px #666 cells, 10px uppercase headers on #f3f3f3, red cells by |DIFF| 6 / 7 / 9 */
+:root { --top:#feba07; --badge:#FFFACE; --live:#F9CBCC; --head:#f3f3f3; --txt:#666; --red1:#fee; --red2:#e99; --red3:#a00; }
+* { box-sizing:border-box; }
+body { margin:0; background:#fff; color:#333; font:14px Roboto, Arial, sans-serif; }
+.top { background:var(--top); padding:12px 16px 14px; }
+.lg { font:600 13px "Fira Sans Extra Condensed", sans-serif; text-transform:uppercase; letter-spacing:.3px; }
+.teams { display:flex; align-items:center; justify-content:space-between; gap:8px; margin-top:8px;
+         font:700 19px "Fira Sans Extra Condensed", sans-serif; }
+.teams .t { flex:1; min-width:0; } .teams .t.a { text-align:right; }
+.sc { background:var(--badge); border-radius:4px; padding:4px 10px; font-size:22px; white-space:nowrap; }
+.meta { margin-top:8px; font-size:12px; display:flex; gap:8px; flex-wrap:wrap; align-items:center; }
+.live { background:var(--live); border-radius:3px; padding:1px 6px; font-weight:500; }
+.ban { margin:10px 16px 0; padding:10px 12px; border-radius:4px; font-size:13px; line-height:1.45; }
+.ban.sig { background:#fff8e1; border-left:4px solid var(--top); }
+.ban.pull { background:#fde8e8; border-left:4px solid var(--red3); }
+.ban b { font-family:"Fira Sans Extra Condensed", sans-serif; font-size:15px; }
+.won { color:#0a7d2c; font-weight:700; } .lost { color:var(--red3); font-weight:700; }
+.tabs { display:flex; gap:4px; overflow-x:auto; padding:12px 16px 0; scrollbar-width:none; }
+.tabs button { border:1px solid #ddd; background:#fff; border-radius:3px; padding:6px 10px; white-space:nowrap;
+               font:600 13px "Fira Sans Extra Condensed", sans-serif; color:#444; cursor:pointer; }
+.tabs button.on { background:var(--top); border-color:var(--top); color:#000; }
+.sum { padding:8px 16px 0; font-size:12px; color:var(--txt); }
+.wrap { padding:8px 16px 24px; }
+table { width:100%; border-collapse:collapse; }
+th { background:var(--head); font:500 10px Roboto, sans-serif; text-transform:uppercase; color:#555; padding:6px 4px;
+     text-align:center; position:sticky; top:0; }
+td { font-size:13px; color:var(--txt); padding:5px 4px; border-bottom:1px solid #eee; text-align:center; }
+td small { display:block; font-size:10px; color:#999; }
+tr:hover td { background:var(--badge); }
+td.red1 { background:var(--red1); } td.red2 { background:var(--red2); color:#333; } td.red3 { background:var(--red3); color:#fff; }
+td.red3 small { color:#fdd; }
+.up { color:#0a7d2c; } .dn { color:var(--red3); }
+tr.bell td { background:#fff8e1; color:#333; text-align:left; font-size:12px; }
+tr.gone td { background:#fde8e8; color:#333; text-align:left; font-size:12px; }
+tr.open td:first-child::after { content:" open"; font-size:9px; color:#999; }
+.foot { padding:0 16px 24px; font-size:11px; color:#999; }
+.msg { padding:40px 16px; text-align:center; color:var(--txt); }
+</style>
+</head>
+<body>
+<div id="app"><div class="msg">loading…</div></div>
+<script>
+const P = new URLSearchParams(location.search), GID = (P.get("id") || "").replace(/\D/g, "");
+const REPO = location.hostname.split(".")[0] + "/" + (location.pathname.split("/")[1] || "odds");
+const API = `https://api.github.com/repos/${REPO}/contents/games/${GID}.json?ref=data`;
+const RAW = `https://raw.githubusercontent.com/${REPO}/data/games/${GID}.json`;
+const REFRESH = 120000;  // contents API: 60 requests/h per viewer IP
+let D = null, tab = P.get("t") || "", timer = null;
+const esc = s => String(s ?? "").replace(/[&<>"]/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
+const hm = (t, sec) => new Date(t * 1000).toLocaleTimeString("en-GB", sec ? {} : {hour:"2-digit", minute:"2-digit"});
+const day = t => new Date(t * 1000).toLocaleDateString("en-GB", {weekday:"short", day:"2-digit", month:"2-digit"});
+const flag = cc => /^[a-z]{2}$/i.test(cc) ? [...cc.toUpperCase()].map(c => String.fromCodePoint(0x1F1A5 + c.charCodeAt(0))).join("") : "🌍";
+const MK = {SPREAD:"HCP", TOTAL:"TOT", "Q-SPREAD":"Q-HCP", "Q-TOTAL":"Q-TOT"};
+
+async function load() {
+  let d = null;
+  try {
+    const r = await fetch(API, {headers:{Accept:"application/vnd.github.raw+json"}, cache:"no-store"});
+    if (r.ok) d = await r.json();
+  } catch (e) {}
+  if (!d) {
+    try { const r = await fetch(RAW, {cache:"no-store"}); if (r.ok) d = await r.json(); } catch (e) {}
+  }
+  if (!d) {
+    if (!D) document.getElementById("app").innerHTML = `<div class="msg">no page for game ${esc(GID)} yet</div>`;
+    return;
+  }
+  D = d;
+  if (!tab || !D.markets.some(m => m.key === tab)) {
+    const a = D.alerts.find(a => MK[a.mk]);
+    tab = a && D.markets.some(m => m.key === MK[a.mk]) ? MK[a.mk] : (D.markets[0] || {}).key;
+  }
+  render();
+  clearTimeout(timer);
+  if (D.state !== "final") timer = setTimeout(load, REFRESH);
+}
+
+function result(a) {
+  if (a.cancel) return ` · <i>${esc(a.cancel.toLowerCase())}</i>`;
+  if (a.res === "") return "";
+  const r = +a.res;
+  return r === 1 ? ' · <span class="won">WON</span>' : r === 0 ? ' · <span class="lost">LOST</span>' : " · push";
+}
+
+function render() {
+  const d = D, live = d.state === "live", fin = d.final;
+  const score = fin ? `${fin[0]} : ${fin[1]}` : d.score ? d.score.replace(":", " : ") : "– : –";
+  const state = fin || d.state === "final" ? "Final" : live ? `<span class="live">LIVE</span> ${esc(d.clock)}`
+              : `Tip-off ${day(d.tip)} ${hm(d.tip)}`;
+  document.title = `${d.home} – ${d.away}`;
+  let h = `<div class="top"><div class="lg">${flag(d.cc)} ${esc(d.league)}</div>
+    <div class="teams"><div class="t">${esc(d.home)}</div><div class="sc">${score}</div><div class="t a">${esc(d.away)}</div></div>
+    <div class="meta">${state}<span>· ${d.plen}-min quarters</span><span>· updated ${hm(d.updated)}</span></div></div>`;
+  if (d.pulled) h += `<div class="ban pull"><b>🚫 PULLED · possible fix</b><br>bet365 took every price off at
+    ${esc(d.pulled.clock)} · score ${esc(d.pulled.score)} · ${hm(d.pulled.t)} (off ${Math.round(d.pulled.min)} min while it played on)</div>`;
+  for (const a of d.alerts) h += `<div class="ban sig"><b>🔔 ${esc(a.kind)} · ${esc(a.market)}</b>${a.missed ? " · missed (bot off)" : ""}
+    · ${hm(a.t)}${a.phase && a.phase !== "pre" ? " · " + esc(a.phase) : ""}<br>✅ BET <b>${esc(a.bet)}</b> (line left)${result(a)}<br>
+    bet365 ${esc(a.line_left)} ➜ ${esc(a.signal)} · league record ${esc(a.lgrec)}</div>`;
+  h += `<div class="tabs">${d.markets.map(m => `<button data-k="${m.key}" class="${m.key === tab ? "on" : ""}">${esc(m.name)}</button>`).join("")}</div>`;
+  const m = d.markets.find(m => m.key === tab);
+  if (m) h += table(m, d);
+  h += `<div class="foot">Bot line = bet365's pre-game close × share of regulation left + the score (the game's own
+    ${d.plen}-min quarters). DIFF = bot − line; red from |DIFF| 6, overload from 7. Times in your clock.</div>`;
+  const app = document.getElementById("app");
+  app.innerHTML = h;
+  app.querySelectorAll(".tabs button").forEach(b => b.onclick = () => { tab = b.dataset.k; render(); });
+}
+
+function table(m, d) {
+  const main = m.kind === "main", ml = m.kind === "ml";
+  const sum = `<div class="sum">open ${esc(m.open)} · close ${esc(m.close)} · ${m.rows.length} records</div>`;
+  const bells = d.alerts.filter(a => MK[a.mk] === m.key);
+  let rows = m.rows.map((x, i) => ({x, i}));
+  const out = [];
+  for (const {x, i} of rows) {
+    for (const a of bells) if (!a._done && x.t >= a.t) { a._done = 1;
+      out.push(`<tr class="bell"><td colspan="${main ? 6 : 4}">🔔 ${esc(a.kind)} here · bet365 ${esc(a.line_left)} ➜ ${esc(a.signal)}
+        · BET ${esc(a.bet)}</td></tr>`); }
+    const ad = Math.abs(+x.gd);
+    const cls = main && x.gd !== undefined ? (ad >= 9 ? "red3" : ad >= 7 ? "red2" : ad >= 6 ? "red1" : "") : "";
+    const mv = x.mv > 0 ? '<span class="up">▲</span>' : x.mv < 0 ? '<span class="dn">▼</span>' : "";
+    const line = ml ? `${esc(x.o1)} / ${esc(x.o2)}` : `${esc(x.l)} ${mv}<small>${esc(x.o1)} / ${esc(x.o2)}</small>`;
+    out.push(`<tr class="${i === 0 ? "open" : ""}"><td>${hm(x.t, true)}</td>
+      <td>${x.c ? esc(x.sc) + "<small>" + esc((x.q ? "Q" + x.q + " " : "") + x.c) + "</small>" : "<small>pre-game</small>"}</td>
+      <td class="${cls}">${line}</td>${main ? `<td>${esc(x.g ?? "")}</td><td>${esc(x.gd ?? "")}</td><td>${esc(x.go ?? "")}</td>` : ""}</tr>`);
+  }
+  bells.forEach(a => delete a._done);
+  if (d.pulled && main) out.push(`<tr class="gone"><td colspan="6">🚫 PULLED after this row · ${esc(d.pulled.clock)} · ${esc(d.pulled.score)}</td></tr>`);
+  if (d.state === "live") out.reverse();  // newest on top while it plays
+  return sum + `<div class="wrap"><table><thead><tr><th>Time</th><th>Score</th><th>${ml ? "Odds" : esc(m.name)}</th>
+    ${main ? "<th>Bot line</th><th>DIFF</th><th>Overload</th>" : ""}</tr></thead><tbody>${out.join("")}</tbody></table></div>`;
+}
+
+if (GID) load(); else document.getElementById("app").innerHTML = '<div class="msg">open from a bot alert (game.html?id=…)</div>';
+</script>
+</body>
+</html>
