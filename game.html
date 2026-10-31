@@ -106,8 +106,8 @@ function render() {
   if (d.pulled) h += `<div class="ban pull"><b>🚫 PULLED · possible fix</b><br>bet365 took every price off at
     ${esc(d.pulled.clock)} · score ${esc(d.pulled.score)} · ${hm(d.pulled.t)} (off ${Math.round(d.pulled.min)} min while it played on)</div>`;
   for (const a of d.alerts) h += `<div class="ban sig"><b>🔔 ${esc(a.kind)} · ${esc(a.market)}</b>${a.missed ? " · missed (bot off)" : ""}
-    · ${hm(a.t)}${a.phase && a.phase !== "pre" ? " · " + esc(a.phase) : ""}<br>✅ BET <b>${esc(a.bet)}</b> (line left)${result(a)}<br>
-    bet365 ${esc(a.line_left)} ➜ ${esc(a.signal)} · league record ${esc(a.lgrec)}</div>`;
+    · ${hm(a.t)}${a.phase && a.phase !== "pre" ? " · " + esc(a.phase) : ""}<br>✅ BET <b>${esc(a.bet)}</b>${a.kind === "LATE" ? "" : " (line left)"}${result(a)}<br>
+    ${a.kind === "LATE" ? "" : `bet365 ${esc(a.line_left)} ➜ ${esc(a.signal)} · `}league record ${esc(a.lgrec)}</div>`;
   h += `<div class="tabs">${d.markets.map(m => `<button data-k="${m.key}" class="${m.key === tab ? "on" : ""}">${esc(m.name)}</button>`).join("")}</div>`;
   const m = d.markets.find(m => m.key === tab);
   if (m) h += table(m, d);
